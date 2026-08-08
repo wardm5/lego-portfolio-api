@@ -97,4 +97,8 @@ The API is covered by a `pytest` suite (unit tests for the market service/schema
 .venv/bin/python -m pytest -v
 ```
 
+Every run also reports code coverage (`pytest-cov`, configured in `.coveragerc`) scoped to the backend package — `main.py`, `database.py`, `model.py`, `schemas.py`, `services/` — and currently sits at 100%. `pytest.ini` enforces that with `--cov-fail-under=100`, so a PR that adds backend code without a matching test fails CI. `dashboard/` and `scripts/` are intentionally excluded — they're not exercised by this suite (Streamlit UI and one-off ETL scripts).
+
+For a browsable HTML report: `.venv/bin/python -m pytest --cov-report=html` then open `htmlcov/index.html`.
+
 Tests run automatically on every push/PR to `main` via GitHub Actions (`.github/workflows/ci.yml`).
