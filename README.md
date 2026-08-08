@@ -12,6 +12,20 @@
 
 > Note: the backend runs on Render's free tier, which spins down after inactivity. The first request after a period of inactivity may take 30–60 seconds to respond while the service wakes up.
 
+## 📸 Demo
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-overview.jpg" width="800" alt="Dashboard overview: total sets, invested value, current value, net profit, collection table, and theme breakdown chart">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/price-history.jpg" width="800" alt="Price history line chart showing market price trend per set over time">
+</p>
+
+Top: live portfolio metrics (invested vs. current value, net profit), the collection table, and a theme-breakdown pie chart. Bottom: the per-set price trend, built from `price_history` snapshots. The sidebar "Add New Set" form (visible in the top screenshot) calls `/lookup-set/{set_number}` as you type, auto-filling name/theme/year/piece count from Rebrickable.
+
+Easiest way to see it yourself: click the [live dashboard](https://de-lego-portfolio-api.streamlit.app) link above — no setup required (just allow ~30–60s for Render to wake up on the first request). To run it locally instead, see **How to Run Locally** below.
+
 ## Tech Stack
 - **Backend:** FastAPI (Python), deployed on Render
 - **Frontend:** Streamlit (Data Dashboard & Interactive Forms), deployed on Streamlit Community Cloud
@@ -70,10 +84,27 @@ The project includes a dedicated, idempotent ETL script (`scripts/etl_pipeline.p
 
 ## 💻 How to Run Locally
 
-1. **Setup Environment:**
-    - Create venv: `python3 -m venv .venv` (use `python3`, not `python`, on Mac)
-    - Activate: `source .venv/bin/activate` (Mac) or `.venv\Scripts\activate` (Windows)
-    - Install backend dependencies: `.venv/bin/python -m pip install -r requirements.txt`
+### Quickest path — just view the dashboard
+
+`main.py` seeds 3 demo LEGO sets on startup whenever the database is empty, so you can see a fully populated dashboard with **no `.env` file and no ETL step**:
+
+```bash
+python3 -m venv .venv                                        # use python3, not python, on Mac
+source .venv/bin/activate                                     # .venv\Scripts\activate on Windows
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r dashboard/requirements.txt
+
+.venv/bin/python -m uvicorn main:app --reload                 # window 1 — the API
+.venv/bin/python -m streamlit run dashboard/dashboard.py      # window 2 — the dashboard
+```
+
+Then open **`http://localhost:8501`** for the dashboard, or **`http://127.0.0.1:8000/docs`** for the interactive API docs (Swagger UI).
+
+Without `REBRICKABLE_API_KEY` set, the "Add New Set" form's live lookup will just warn that the set wasn't found and let you fill the fields in manually — everything else (stats, table, charts) works the same either way.
+
+### Full setup — with real Rebrickable data + price history
+
+1. **Setup Environment:** same as above.
 
 2. **Configure Secrets:**
     - Create a `.env` file in the root directory.
@@ -83,7 +114,4 @@ The project includes a dedicated, idempotent ETL script (`scripts/etl_pipeline.p
     - Run ETL: `.venv/bin/python scripts/etl_pipeline.py`
     - Take a price snapshot: `.venv/bin/python scripts/snapshot_prices.py` (run this periodically to build price history over time)
 
-4. **Start Server:**
-    - Window 1: `.venv/bin/python -m uvicorn main:app --reload`
-    - Window 2: `.venv/bin/python -m streamlit run dashboard/dashboard.py`
-    - Dashboard available at: `http://localhost:8501`. View Interactive Docs: `http://127.0.0.1:8000/docs`
+4. **Start Server:** same two commands as above.
