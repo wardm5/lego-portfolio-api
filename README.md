@@ -87,3 +87,14 @@ The project includes a dedicated, idempotent ETL script (`scripts/etl_pipeline.p
     - Window 1: `.venv/bin/python -m uvicorn main:app --reload`
     - Window 2: `.venv/bin/python -m streamlit run dashboard/dashboard.py`
     - Dashboard available at: `http://localhost:8501`. View Interactive Docs: `http://127.0.0.1:8000/docs`
+
+## ✅ Running Dashboard Tests
+
+The dashboard has its own test suite (`dashboard/tests/`), separate from the backend's, using Streamlit's `AppTest` framework — it runs `dashboard.py` headlessly and asserts on the rendered widgets, with the backend's HTTP calls mocked (no real server needed). It has its own scoped dev dependencies, mirroring how `dashboard/requirements.txt` is already kept separate from the backend's:
+
+```bash
+.venv/bin/python -m pip install -r dashboard/requirements-dev.txt
+.venv/bin/python -m pytest dashboard/tests -v
+```
+
+Runs automatically on every push/PR to `main` that touches `dashboard/**`, via `.github/workflows/dashboard-ci.yml`.
