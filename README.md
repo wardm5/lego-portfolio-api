@@ -97,8 +97,19 @@ The API is covered by a `pytest` suite (unit tests for the market service/schema
 .venv/bin/python -m pytest -v
 ```
 
-Every run also reports code coverage (`pytest-cov`, configured in `.coveragerc`) scoped to the backend package — `main.py`, `database.py`, `model.py`, `schemas.py`, `services/` — and currently sits at 100%. `pytest.ini` enforces that with `--cov-fail-under=100`, so a PR that adds backend code without a matching test fails CI. `dashboard/` and `scripts/` are intentionally excluded — they're not exercised by this suite (Streamlit UI and one-off ETL scripts).
+Every run also reports code coverage (`pytest-cov`, configured in `.coveragerc`) scoped to the backend package — `main.py`, `database.py`, `model.py`, `schemas.py`, `services/` — and currently sits at 100%. `pytest.ini` enforces that with `--cov-fail-under=100`, so a PR that adds backend code without a matching test fails CI. `dashboard/` and `scripts/` are intentionally excluded from this suite — they're not exercised by it (Streamlit UI and one-off ETL scripts), but the dashboard has its own test suite below.
 
 For a browsable HTML report: `.venv/bin/python -m pytest --cov-report=html` then open `htmlcov/index.html`.
 
 Tests run automatically on every push/PR to `main` via GitHub Actions (`.github/workflows/ci.yml`).
+
+## ✅ Running Dashboard Tests
+
+The dashboard has its own test suite (`dashboard/tests/`), separate from the backend's, using Streamlit's `AppTest` framework — it runs `dashboard.py` headlessly and asserts on the rendered widgets, with the backend's HTTP calls mocked (no real server needed). It has its own scoped dev dependencies, mirroring how `dashboard/requirements.txt` is already kept separate from the backend's:
+
+```bash
+.venv/bin/python -m pip install -r dashboard/requirements-dev.txt
+.venv/bin/python -m pytest dashboard/tests -v
+```
+
+Runs automatically on every push/PR to `main` that touches `dashboard/**`, via `.github/workflows/dashboard-ci.yml`.

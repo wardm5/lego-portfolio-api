@@ -18,6 +18,7 @@ st.markdown("Real-time valuation and ROI tracking")
 try:
     stats_res = requests.get(f"{API_BASE_URL}/portfolio/stats").json()
     sets_res = requests.get(f"{API_BASE_URL}/sets").json()
+    history_res = requests.get(f"{API_BASE_URL}/portfolio/history").json()
 
     # 2. TOP METRICS
     col1, col2, col3, col4 = st.columns(4)
@@ -31,9 +32,52 @@ try:
     st.subheader("Collection Breakdown")
     df = pd.DataFrame(sets_res)
 
+    # Merge in each set's latest price_history snapshot (if any) to show current value/profit per row.
+    history_df_all = pd.DataFrame(history_res)
+    if not history_df_all.empty:
+        history_df_all['captured_at'] = pd.to_datetime(history_df_all['captured_at'])
+        latest_prices = (
+            history_df_all.sort_values('captured_at')
+            .groupby('set_number')['price']
+            .last()
+            .reset_index()
+            .rename(columns={'price': 'current_price'})
+        )
+        df = df.merge(latest_prices, on='set_number', how='left')
+    else:
+        df['current_price'] = None
+
+    df['current_value'] = df['current_price'] * df['quantity']
+    df['profit'] = df['current_value'] - (df['purchase_price'] * df['quantity'])
+
+    # Theme filter — scoped to just this table, so the summary metrics and pie chart above/below
+    # keep showing the whole portfolio regardless of what's selected here.
+    themes = sorted(df['theme'].dropna().unique().tolist())
+    selected_themes = st.multiselect("Filter by theme", themes, default=themes)
+    filtered_df = df[df['theme'].isin(selected_themes)] if selected_themes else df.iloc[0:0]
+
     # Clean up the dataframe for display
-    display_df = df[[ 'set_name', 'set_number', 'theme', 'year', 'num_parts', 'purchase_price', 'quantity']]
-    st.dataframe(display_df, width='stretch')
+    display_df = filtered_df[[
+        'image_url', 'set_name', 'set_number', 'theme', 'year', 'num_parts',
+        'purchase_price', 'quantity', 'current_value', 'profit',
+    ]]
+    st.dataframe(
+        display_df,
+        width='stretch',
+        column_config={
+            "image_url": st.column_config.ImageColumn("Image"),
+            "purchase_price": st.column_config.NumberColumn("Purchase Price", format="$%.2f"),
+            "current_value": st.column_config.NumberColumn("Current Value", format="$%.2f"),
+            "profit": st.column_config.NumberColumn("Profit", format="$%.2f"),
+        },
+    )
+
+    st.download_button(
+        "⬇️ Download as CSV",
+        data=display_df.to_csv(index=False).encode('utf-8'),
+        file_name="lego_portfolio.csv",
+        mime="text/csv",
+    )
 
     # 3.5 REMOVE A SET
     with st.expander("🗑️ Remove a Set"):
