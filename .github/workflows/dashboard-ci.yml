@@ -27,4 +27,4 @@ jobs:
         run: pip install -r dashboard/requirements-dev.txt
 
       - name: Run dashboard tests
-        run: pytest dashboard/tests -v
+        run: pytest -c dashboard/pytest.ini dashboard/tests -v
