@@ -115,3 +115,14 @@ Without `REBRICKABLE_API_KEY` set, the "Add New Set" form's live lookup will jus
     - Take a price snapshot: `.venv/bin/python scripts/snapshot_prices.py` (run this periodically to build price history over time)
 
 4. **Start Server:** same two commands as above.
+
+## ✅ Running Dashboard Tests
+
+The dashboard has its own test suite (`dashboard/tests/`), separate from the backend's, using Streamlit's `AppTest` framework — it runs `dashboard.py` headlessly and asserts on the rendered widgets, with the backend's HTTP calls mocked (no real server needed). It has its own scoped dev dependencies, mirroring how `dashboard/requirements.txt` is already kept separate from the backend's:
+
+```bash
+.venv/bin/python -m pip install -r dashboard/requirements-dev.txt
+.venv/bin/python -m pytest dashboard/tests -v
+```
+
+Runs automatically on every push/PR to `main` that touches `dashboard/**`, via `.github/workflows/dashboard-ci.yml`.
