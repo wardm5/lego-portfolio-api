@@ -1,7 +1,10 @@
-from fastapi import FastAPI
-from fastapi import HTTPException
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy.orm import Session
+
 import model
-from database import engine, SessionLocal
+from database import engine, SessionLocal, get_db
 import schemas
 from services import market
 import os
@@ -12,7 +15,6 @@ load_dotenv()
 REBRICKABLE_API_KEY = os.getenv("REBRICKABLE_API_KEY")
 REBRICKABLE_HEADERS = {"Authorization": f"key {REBRICKABLE_API_KEY}"}
 
-model.Base.metadata.create_all(bind=engine)
 
 def seed_if_empty():
     """If the DB is empty (e.g. fresh deploy on ephemeral storage), populate demo data."""
@@ -31,83 +33,75 @@ def seed_if_empty():
     finally:
         db.close()
 
-seed_if_empty()
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    model.Base.metadata.create_all(bind=engine)
+    # Tests set SEED_DEMO_DATA=false so they start from a clean, empty DB.
+    if os.getenv("SEED_DEMO_DATA", "true").lower() != "false":
+        seed_if_empty()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def home():
     return {"message": "Hello Xiaoqi! Your Lego API is alive!"}
 
 @app.get("/sets")
-def get_all_sets():
-    db = SessionLocal()
-    try:
-        # add one final "View" button
-        all_sets = db.query(model.LegoSet).all()
-        return all_sets
-    finally:
-        db.close()
+def get_all_sets(db: Session = Depends(get_db)):
+    # add one final "View" button
+    all_sets = db.query(model.LegoSet).all()
+    return all_sets
 
 @app.post("/add-set")
-def create_set(lego_set: schemas.LegoSet):
-    db = SessionLocal()
-    try:
-        # 1. CHECK: Does this set_number already exist in our database?
-        existing_set = db.query(model.LegoSet).filter(model.LegoSet.set_number == lego_set.set_number).first()
+def create_set(lego_set: schemas.LegoSet, db: Session = Depends(get_db)):
+    # 1. CHECK: Does this set_number already exist in our database?
+    existing_set = db.query(model.LegoSet).filter(model.LegoSet.set_number == lego_set.set_number).first()
 
-        if existing_set:
-            # 2. REJECT: Tell the user exactly why we won't add it
-            raise HTTPException(status_code=400, detail=f"Set {lego_set.set_number} is already in your collection!")
+    if existing_set:
+        # 2. REJECT: Tell the user exactly why we won't add it
+        raise HTTPException(status_code=400, detail=f"Set {lego_set.set_number} is already in your collection!")
 
-        # 3. PROCEED: If it's unique, save it
-        db_set = model.LegoSet(**lego_set.dict())
-        db.add(db_set)
-        db.commit()
-        return {"message": f"Successfully added {lego_set.set_name}!"}
-    finally:
-        db.close()
+    # 3. PROCEED: If it's unique, save it
+    db_set = model.LegoSet(**lego_set.dict())
+    db.add(db_set)
+    db.commit()
+    return {"message": f"Successfully added {lego_set.set_name}!"}
 
 @app.get("/portfolio/stats")
-def get_portfolio_stats():
-    db = SessionLocal()
-    try:
-        sets = db.query(model.LegoSet).all()
+def get_portfolio_stats(db: Session = Depends(get_db)):
+    sets = db.query(model.LegoSet).all()
 
-        total_spent = 0
-        total_value = 0
+    total_spent = 0
+    total_value = 0
 
-        for s in sets:
-            # Multiply by quantity to get the true total
-            total_spent += (s.purchase_price * s.quantity)
-            current_price = market.get_market_price(s.set_number)
-            total_value += (current_price * s.quantity)
+    for s in sets:
+        # Multiply by quantity to get the true total
+        total_spent += (s.purchase_price * s.quantity)
+        current_price = market.get_market_price(s.set_number)
+        total_value += (current_price * s.quantity)
 
-        profit = total_value - total_spent
-        roi = (profit / total_spent * 100) if total_spent > 0 else 0
+    profit = total_value - total_spent
+    roi = (profit / total_spent * 100) if total_spent > 0 else 0
 
-        return {
-            "user": "Xiaoqi Jiang",
-            "total_sets": len(sets),
-            "summary": {
-                "total_investment": f"${total_spent:,.2f}",
-                "current_market_value": f"${total_value:,.2f}",
-                "net_profit": f"${profit:,.2f}",
-                "roi_percentage": f"{roi:.2f}%"
-            },
-            "note": "Market data currently provided by Mock Service"
-        }
-    finally:
-        db.close()
+    return {
+        "user": "Xiaoqi Jiang",
+        "total_sets": len(sets),
+        "summary": {
+            "total_investment": f"${total_spent:,.2f}",
+            "current_market_value": f"${total_value:,.2f}",
+            "net_profit": f"${profit:,.2f}",
+            "roi_percentage": f"{roi:.2f}%"
+        },
+        "note": "Market data currently provided by Mock Service"
+    }
 
 @app.get("/portfolio/history")
-def get_price_history():
-    db = SessionLocal()
-    try:
-        history = db.query(model.PriceHistory).order_by(model.PriceHistory.captured_at).all()
-        return history
-    finally:
-        db.close()
+def get_price_history(db: Session = Depends(get_db)):
+    history = db.query(model.PriceHistory).order_by(model.PriceHistory.captured_at).all()
+    return history
 
 @app.get("/lookup-set/{set_number}")
 def lookup_set(set_number: str):

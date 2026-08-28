@@ -64,7 +64,7 @@ The project includes a dedicated, idempotent ETL script (`scripts/etl_pipeline.p
 - [x] Enriched set data with year/piece count/image via Rebrickable
 - [x] Added **GET /lookup-set/{set_number}** live lookup, wired into the dashboard's Add Set form
 - [x] Deployed backend to Render and dashboard to Streamlit Community Cloud
-- [ ] Add automated test suite (pytest)
+- [x] Added automated test suite (pytest) + GitHub Actions CI
 - [ ] Transition from Mock to Live eBay/BrickLink Market Data
 - [ ] Add User Authentication for private portfolios
 
@@ -87,6 +87,21 @@ The project includes a dedicated, idempotent ETL script (`scripts/etl_pipeline.p
     - Window 1: `.venv/bin/python -m uvicorn main:app --reload`
     - Window 2: `.venv/bin/python -m streamlit run dashboard/dashboard.py`
     - Dashboard available at: `http://localhost:8501`. View Interactive Docs: `http://127.0.0.1:8000/docs`
+
+## ✅ Running Tests
+
+The API is covered by a `pytest` suite (unit tests for the market service/schemas, plus integration tests against the FastAPI routes using an isolated temp SQLite DB — no real Rebrickable calls or demo-data seeding involved).
+
+```bash
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -v
+```
+
+Every run also reports code coverage (`pytest-cov`, configured in `.coveragerc`) scoped to the backend package — `main.py`, `database.py`, `model.py`, `schemas.py`, `services/` — and currently sits at 100%. `pytest.ini` enforces that with `--cov-fail-under=100`, so a PR that adds backend code without a matching test fails CI. `dashboard/` and `scripts/` are intentionally excluded from this suite — they're not exercised by it (Streamlit UI and one-off ETL scripts), but the dashboard has its own test suite below.
+
+For a browsable HTML report: `.venv/bin/python -m pytest --cov-report=html` then open `htmlcov/index.html`.
+
+Tests run automatically on every push/PR to `main` via GitHub Actions (`.github/workflows/ci.yml`).
 
 ## ✅ Running Dashboard Tests
 

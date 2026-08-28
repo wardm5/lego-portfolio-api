@@ -1,0 +1,10 @@
+[run]
+source =
+    main
+    database
+    model
+    schemas
+    services
+
+[report]
+show_missing = True
